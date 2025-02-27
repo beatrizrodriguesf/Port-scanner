@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 
 import sys, socket, multiprocessing, argparse
-from constantes import PORTAS_PRINCIPAIS
 
 def port_scan(host_info, porta, family):
     s = socket.socket(family, socket.SOCK_STREAM)
@@ -35,10 +34,10 @@ def main():
             print(f"Host inválido, tente novamente")
             sys.exit(1)
 
-    portas = portas.split(",")
+    portas = portas.strip()
 
-    if portas:
-        for p in portas:
+    if portas != "":
+        for p in portas.split(","):
             port_scan(host_info, p, family)
     else:
         for p in range(1, 65535):
