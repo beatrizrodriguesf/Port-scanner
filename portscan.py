@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
-import sys, socket, multiprocessing, argparse
+import sys, socket
 import ipaddress
+from threading import Thread
 
 def port_scan(host_info, porta, family):
 
@@ -15,6 +16,15 @@ def port_scan(host_info, porta, family):
         if x == 0:
             return 1
         return 0
+    
+def thread(lista_portas, host_info, family):
+    for p in lista_portas:
+        if port_scan(host_info, p, family):
+            try:
+                service = socket.getservbyport(int(p), "tcp")
+                print(f"{p}/tcp - Aberta - {service}")
+            except OSError:   
+                print(f"{p}/tcp - Aberta - unknown")
 
 def main():
 
@@ -47,26 +57,29 @@ def main():
         print(f"Escaneando portas do host {host_info[0]}")
         print("PORTA - STATUS - SERVICO")
 
+        threads = []
+        lista_portas = []
+
         if len(portas.split("-")) <= 1:
-            for p in portas.split(","):
-                if port_scan(host_info, p, family):
-                    try:
-                        service = socket.getservbyport(int(p), "tcp")
-                        print(f"{p}/tcp - Aberta - {service}")
-                    except OSError:   
-                        print(f"{p}/tcp - Aberta - unknown")
-                    
+            lista_portas = portas.split(",")         
         else:
             portas = portas.split("-")
             inicio = int(portas[0])
             fim = int(portas[1])
-            for p in range(inicio, fim+1):
-                if port_scan(host_info, p, family):
-                    try:
-                        service = socket.getservbyport(p, "tcp")
-                        print(f"Porta {p} [TCP] aberta {service}")
-                    except OSError:   
-                        print(f"Porta {p} [TCP] aberta")
+            lista_portas = range(inicio, fim+1)
+
+        n = len(lista_portas)//10
+        resto = len(lista_portas)%10 
+        
+        for i in range(n):
+            threads.append(Thread(target=thread(lista_portas[i*10:(i+1)*10], host_info, family)))
+        if resto != 0:
+            threads.append(Thread(target=thread(lista_portas[n*10:n*10+resto], host_info, family)))
+
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
 
 if __name__ == "__main__":
