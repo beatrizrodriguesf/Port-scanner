@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import sys, socket, multiprocessing, argparse
+import ipaddress
 
 def port_scan(host_info, porta, family):
     s = socket.socket(family, socket.SOCK_STREAM)
@@ -17,31 +18,44 @@ def port_scan(host_info, porta, family):
         except OSError:   
             print(f"Porta {porta} [TCP] aberta")
 
+def net_scan(addr):
+    s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    socket.setdefaulttimeout(1)
+    x = s.connect_ex((str(addr), 80))
+    if x == 0:
+        return 1
+    else:
+        return 0
+
+
 def main():
 
-    ip = input("Digite o ip que deseja analisar:")
-    portas = input("Digite as portas separadas por virgula (deixe em branco para analisar todas):")
+    ip_rede = input("Digite o ip ou rede que deseja analisar:").strip()
 
-    try:
-        info = socket.getaddrinfo(ip, None) # Pega ipv6 e ipv4
-        family = info[0][0]
-        host_info = info[0][4]
-    except socket.gaierror:
+    if len(ip_rede.split("/")) > 1:
+        net = ipaddress.ip_network(ip_rede)
+        for ip in net.hosts():
+            if (net_scan(ip)):
+                print(f"IP {ip} is live")
+    else:
+        portas = input("Digite as portas separadas por virgula (deixe em branco para analisar todas):")
+
         try:
-            host_info = (socket.gethostbyname(ip), 0) # pega ipv4 pelo nome do dominio
-            family = socket.AF_INET
+            info = socket.getaddrinfo(ip_rede, None) # Pega ipv6 e ipv4
+            family = info[0][0]
+            host_info = info[0][4]
         except socket.gaierror:
             print(f"Host inválido, tente novamente")
             sys.exit(1)
 
-    portas = portas.strip()
+        portas = portas.strip()
 
-    if portas != "":
-        for p in portas.split(","):
-            port_scan(host_info, p, family)
-    else:
-        for p in range(1, 65535):
-            port_scan(host_info, p, family)
+        if portas != "":
+            for p in portas.split(","):
+                port_scan(host_info, p, family)
+        else:
+            for p in range(1, 65535):
+                port_scan(host_info, p, family)
 
 
 if __name__ == "__main__":
