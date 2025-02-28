@@ -13,18 +13,29 @@ def port_scan(host_info, porta, family):
             x = s.connect_ex((host_info[0], int(porta)))
         elif family == socket.AF_INET6:
             x = s.connect_ex((host_info[0], int(porta), host_info[2], host_info[3]))
-        if x == 0:
+        if x == 0: # Conexao bem sucedida - aberta
             return 1
-        return 0
+        elif x == 111 or x == 10061: # Connection refused - fechada
+            return 0
+        else: # Timeout e outros erros - filtrada
+            return 2
     
-def thread(lista_portas, host_info, family):
+def thread(lista_portas, host_info, family, filtradas):
     for p in lista_portas:
-        if port_scan(host_info, p, family):
+        result = port_scan(host_info, p, family)
+        if result == 1:
             try:
                 service = socket.getservbyport(int(p), "tcp")
                 print(f"{p}/tcp - Aberta - {service}")
             except OSError:   
                 print(f"{p}/tcp - Aberta - unknown")
+        elif result == 2 and filtradas:
+            try:
+                service = socket.getservbyport(int(p), "tcp")
+                print(f"{p}/tcp - Filtrada - {service}")
+            except OSError:   
+                print(f"{p}/tcp - Filtrada - unknown")
+
 
 def banner_grabbing(host_info, family):
     portas = [21, 22, 25, 80, 110, 143, 443]
@@ -56,7 +67,7 @@ def banner_grabbing(host_info, family):
 
 def host_is_live(host_info, family):
     for porta in [80, 135]:
-        if port_scan(host_info, porta, family):
+        if port_scan(host_info, porta, family) == 1:
             return 1
     return 0
 
@@ -79,6 +90,12 @@ def main():
 
     else:
         portas = input("Digite as portas separadas por virgula ou um intervalo separado por hifen: ")
+        filtradas = input("Deseja ver as portas filtradas [S/N]?")
+
+        if filtradas.lower() == "s":
+            filtradas = True
+        else:
+            filtradas = False
 
         try:
             info = socket.getaddrinfo(ip_rede, None) # Pega ipv6 e ipv4
@@ -108,9 +125,9 @@ def main():
         resto = len(lista_portas)%10 
         
         for i in range(n):
-            threads.append(Thread(target=thread(lista_portas[i*10:(i+1)*10], host_info, family)))
+            threads.append(Thread(target=thread(lista_portas[i*10:(i+1)*10], host_info, family, filtradas)))
         if resto != 0:
-            threads.append(Thread(target=thread(lista_portas[n*10:n*10+resto], host_info, family)))
+            threads.append(Thread(target=thread(lista_portas[n*10:n*10+resto], host_info, family, filtradas)))
 
         for t in threads:
             t.start()
