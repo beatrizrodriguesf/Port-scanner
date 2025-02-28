@@ -26,6 +26,40 @@ def thread(lista_portas, host_info, family):
             except OSError:   
                 print(f"{p}/tcp - Aberta - unknown")
 
+def banner_grabbing(host_info, family):
+    portas = [21, 22, 25, 80, 110, 143, 443]
+    for porta in portas:
+        with socket.socket(family, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            try:
+                if family == socket.AF_INET:
+                    x = s.connect_ex((host_info[0], porta))
+                elif family == socket.AF_INET6:
+                    x = s.connect_ex((host_info[0], porta, host_info[2], host_info[3]))
+                banner = s.recv(1024)
+                if banner is not None:
+                    banner = banner.decode()
+                    if "Ubuntu" in banner:
+                        return "Ubuntu"
+                    if "Debian" in banner:
+                        return "Debian"
+                    if "Linux" in banner:
+                        return "Linux"
+                    if "Windows" in banner:
+                        return "Windows"
+                    if "macOS" in banner:
+                        return "macOs"
+            except:
+                continue
+
+    return "Unknown"
+
+def host_is_live(host_info, family):
+    for porta in [80, 135]:
+        if port_scan(host_info, porta, family):
+            return 1
+    return 0
+
 def main():
 
     ip_rede = input("Digite o ip ou rede que deseja analisar: ").strip()
@@ -33,14 +67,15 @@ def main():
     if len(ip_rede.split("/")) > 1:
         net = ipaddress.ip_network(ip_rede)
         print(f"Escaneando rede {ip_rede}")
+        print(f"IP - STATUS - OS")
 
         for ip in net.hosts():
             info = socket.getaddrinfo(str(ip), None) # Pega ipv6 e ipv4
             family = info[0][0]
             host_info = info[0][4]
 
-            if port_scan(host_info, 80, family):
-                print(f"IP {host_info[0]} is live")
+            if host_is_live(host_info, family):
+                print(f"{host_info[0]} - live - {banner_grabbing(host_info, family)}")
 
     else:
         portas = input("Digite as portas separadas por virgula ou um intervalo separado por hifen: ")
@@ -54,7 +89,8 @@ def main():
             sys.exit(1)
 
         portas = portas.strip()
-        print(f"Escaneando portas do host {host_info[0]}")
+        print(f"Escaneando host {host_info[0]}")
+        print(f"Sistema Operacional do host: {banner_grabbing(host_info, family)}")
         print("PORTA - STATUS - SERVICO")
 
         threads = []
